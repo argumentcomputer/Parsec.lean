@@ -229,6 +229,17 @@ def anyChar : Parsec Char := λ pos =>
   else
     error pos unexpectedEndOfInput
 
+/--
+One of the given Chars
+-/
+@[inline]
+def oneOfC (cs : List Char) : Parsec Char := do
+  let c ← anyChar
+  if cs.contains c then
+    pure c
+  else
+    fail s!"expected one of: {cs}"
+
 @[inline]
 def pchar (c : Char) : Parsec Char := attempt do
   if (←anyChar) = c then pure c else fail s!"expected: '{c}'"
