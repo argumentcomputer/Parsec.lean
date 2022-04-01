@@ -45,11 +45,11 @@
       {
         inherit project test;
         packages = project // {
-          ${name} = project.executable;
+          ${name} = project.sharedLib;
           test = test.executable;
         };
 
-        defaultPackage = self.packages.${system}.${name};
+        defaultPackage = self.packages.${system}.test;
         devShell = pkgs.mkShell {
           inputsFrom = [ project.executable ];
           buildInputs = with pkgs; [

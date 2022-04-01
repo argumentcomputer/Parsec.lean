@@ -6,14 +6,14 @@ class ParserState (P : Type) where
   /--
   Get the current parser index 
   -/
-  index : P → Nat
+  index : P → String.Pos
   
   /--
   Move parser to the next symbol
   -/
   next : P → P
 
-structure Pos where
+structure State where
   it : String.Iterator
   line : Nat := 1
   lineOffset : Nat := 0
@@ -22,15 +22,15 @@ structure Pos where
 def isNewline (c : Char) : Bool :=
   c = '\n'
 
-def nextPosIt (pos : Pos) : Pos :=
+def nextStateIt (pos : State) : State :=
   if isNewline pos.it.curr then
     {pos with it := pos.it.next, lineOffset := 0, line := pos.line + 1 }
   else
     {pos with it := pos.it.next, lineOffset := pos.lineOffset + 1 }
   
-instance : ParserState Pos where
+instance : ParserState State where
   index pos := pos.it.i
-  next := nextPosIt
+  next := nextStateIt
   
 
 /-
@@ -46,7 +46,7 @@ end Parsec
 /-
 A function which converts an iterator to a ParseResult
 -/
-def Parsec (α : Type) : Type := Parsec.Pos → Parsec.ParseResult Parsec.Pos String α
+def Parsec (α : Type) : Type := Parsec.State → Parsec.ParseResult Parsec.State String α
 
 namespace Parsec
 
@@ -120,7 +120,7 @@ def orElse (p : Parsec α) (q : Unit → Parsec α) : Parsec α := fun pos =>
         error rem2 err2
     | success rem a => success rem a
 
-def getPos : Parsec (Nat × Nat) := λ pos => success pos (pos.line, pos.lineOffset)
+def getState : Parsec (Nat × Nat) := λ pos => success pos (pos.line, pos.lineOffset)
 
 /-
 Convert errors to none
@@ -225,7 +225,7 @@ def unexpectedEndOfInput := "unexpected end of input"
 @[inline]
 def anyChar : Parsec Char := λ pos =>
   if pos.it.hasNext then
-    success (nextPosIt pos) pos.it.curr
+    success (nextStateIt pos) pos.it.curr
   else
     error pos unexpectedEndOfInput
 
@@ -292,14 +292,14 @@ Non strict whitespace
 partial def skipWs : Parsec Unit := λ pos =>
   let c := pos.it.curr
   if pos.it.hasNext && isWhitespace c then
-    skipWs <| nextPosIt pos
+    skipWs <| nextStateIt pos
   else
     success pos ()
 
 @[inline]
 def peek? : Parsec (Option Char) := fun pos =>
   if pos.it.hasNext then
-    success (nextPosIt pos) pos.it.curr
+    success (nextStateIt pos) pos.it.curr
   else
     success pos none
 
@@ -326,7 +326,7 @@ def wsStrict : Parsec Unit := do
   ws
 
 def parse {A: Type} (p: Parsec A) (s : String) : Except String A :=
-  match p { it := s.mkIterator : Parsec.Pos } with
+  match p { it := s.mkIterator : Parsec.State } with
   | ParseResult.success _ res => Except.ok res
   | ParseResult.error pos err  =>
   let line := (s.split (λ c => c = '\n')).getD (pos.line-1) ""
