@@ -1,17 +1,7 @@
 import Parsec.Utils
+import Parsec.Binary
 
 namespace Parsec
-
-class ParserState (P : Type) where
-  /--
-  Get the current parser index 
-  -/
-  index : P → String.Pos
-  
-  /--
-  Move parser to the next symbol
-  -/
-  next : P → P
 
 structure State where
   it : String.Iterator
@@ -22,16 +12,15 @@ structure State where
 def isNewline (c : Char) : Bool :=
   c = '\n'
 
-def nextStateIt (pos : State) : State :=
-  if isNewline pos.it.curr then
-    {pos with it := pos.it.next, lineOffset := 0, line := pos.line + 1 }
+def nextStateIt (state : State) : State :=
+  if isNewline state.it.curr then
+    {state with it := state.it.next, lineOffset := 0, line := state.line + 1 }
   else
-    {pos with it := pos.it.next, lineOffset := pos.lineOffset + 1 }
+    {state with it := state.it.next, lineOffset := state.lineOffset + 1 }
   
 instance : ParserState State where
-  index pos := pos.it.i
+  index state := state.it.i.byteIdx
   next := nextStateIt
-  
 
 /-
 Result which keeps track of the parsing state.
@@ -53,23 +42,41 @@ namespace Parsec
 open ParseResult ParserState
 
 instance (α : Type) : Inhabited (Parsec α) :=
-  ⟨λ pos => error pos ""⟩
+  ⟨λ state => error state ""⟩
 
 @[inline]
-protected def pure (a : α) : Parsec α := λ pos =>
- success pos a
+protected def pure (a : α) : Parsec α := λ state =>
+ success state a
 
 @[inline]
-def bind {α β : Type} (f : Parsec α) (g : α → Parsec β) : Parsec β := λ pos =>
-  match f pos with
+def bind {α β : Type} (f : Parsec α) (g : α → Parsec β) : Parsec β := λ state =>
+  match f state with
   | success rem a => g a rem
-  | error pos msg => error pos msg
+  | error state msg => error state msg
 
 instance : Monad Parsec :=
   { pure := Parsec.pure, bind }
 
 @[inline]
 def map {α β : Type} (f : α → β) (p : Parsec α) : Parsec β := p >>= pure ∘ f
+
+instance : MonadState State Parsec where
+  get := λ s =>
+    success s s
+  set s := λ _ =>
+    success s ()
+  modifyGet f := λ s =>
+    let (a, s1) := f s
+    success s1 a
+
+
+/-
+Get the iterator position.
+-/
+@[inline]
+def getPos : Parsec String.Pos := do
+  let s ← get
+  return s.it.pos
 
 @[inline]
 def andAppend {α : Type} [Append α] (f : Parsec α) (g : Parsec α) : Parsec α := do 
