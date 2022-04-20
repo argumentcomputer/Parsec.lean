@@ -1,0 +1,128 @@
+
+namespace Parsec
+
+universe u
+
+class ParserState (P : Type u) where
+  /--
+  Get the current parser index 
+  -/
+  index : P → Nat
+  
+  /--
+  Move parser to the next symbol
+  -/
+  next : P → P
+
+/-
+Result which keeps track of the parsing state.
+-/
+inductive ParseResult (E S : Type u) [ParserState S] (α : Type u) where
+  | success (state : S) (res : α)
+  | error (state : S) (err : E)
+  deriving Repr
+
+open ParseResult ParserState
+
+/-
+Keep a record of parsers in use.
+-/
+class Backtrackable (δ : outParam (Type u)) (σ : Type u) where
+  save    : σ → δ
+  restore : σ → δ → σ
+
+def ParsecM (E S : Type u) [ParserState S] (α : Type u) : Type u := S → Parsec.ParseResult E S α
+
+namespace ParsecM
+
+variable {ε σ α β : Type u} [ParserState σ]
+
+instance [Inhabited ε] : Inhabited (ParsecM ε σ α) where
+  default := fun s => error s default
+
+@[inline] protected def pure (a : α) : ParsecM ε σ α := fun s =>
+  success s a
+
+@[inline] protected def set (s : σ) : ParsecM ε σ PUnit := fun _ =>
+  success s PUnit.unit
+
+@[inline] protected def get : ParsecM ε σ σ := fun s =>
+  success s s
+
+@[inline] protected def modifyGet (f : σ → Prod α σ) : ParsecM ε σ α := fun s =>
+  match f s with
+  | (a, s) => success s a
+
+@[inline] protected def tryCatch {δ} [Backtrackable δ σ] {α} (x : ParsecM ε σ α) (handle : ε → ParsecM ε σ α) : ParsecM ε σ α := fun s =>
+  let d := Backtrackable.save s
+  match x s with
+  | error s e => handle e (Backtrackable.restore s d)
+  | success s a => success s a
+
+@[inline] protected def orElse {δ} [Backtrackable δ σ] (x₁ : ParsecM ε σ α) (x₂ : Unit → ParsecM ε σ α) : ParsecM ε σ α := fun s =>
+  let d := Backtrackable.save s;
+  match x₁ s with
+  | error s _ => x₂ () (Backtrackable.restore s d)
+  | success s a  => success s a
+
+@[inline] protected def throw (e : ε) : ParsecM ε σ α := fun s =>
+  error s e
+
+@[inline] def adaptExcept {ε' : Type u} (f : ε → ε') (x : ParsecM ε σ α) : ParsecM ε' σ α := fun s =>
+  match x s with
+  | error s e => error s (f e)
+  | success s a    => success s a
+
+@[inline] protected def bind (x : ParsecM ε σ α) (f : α → ParsecM ε σ β) : ParsecM ε σ β := fun s =>
+  match x s with
+  | success s a => f a s
+  | error s e => error s e
+
+@[inline] protected def map (f : α → β) (x : ParsecM ε σ α) : ParsecM ε σ β := fun s =>
+  match x s with
+  | success s a => success s (f a) 
+  | error s e => error s e
+
+@[inline] protected def seqRight (x : ParsecM ε σ α) (y : Unit → ParsecM ε σ β) : ParsecM ε σ β := fun s =>
+  match x s with
+  | success s _ => y () s
+  | error e s  => error e s
+
+instance [ParserState σ] : Monad (ParsecM ε σ) where
+  bind     := ParsecM.bind
+  pure     := ParsecM.pure
+  map      := ParsecM.map
+  seqRight := ParsecM.seqRight
+
+instance {δ} [Backtrackable δ σ] : OrElse (ParsecM ε σ α) where
+  orElse := ParsecM.orElse
+  
+instance [ParserState σ] : MonadState σ (ParsecM ε σ) where
+  set       := ParsecM.set
+  get       := ParsecM.get
+  modifyGet := ParsecM.modifyGet
+
+instance {δ} [Backtrackable δ σ] : MonadExceptOf ε (ParsecM ε σ) where
+  throw    := ParsecM.throw
+  tryCatch := ParsecM.tryCatch
+
+@[inline]
+def andAppend {α : Type u} [Append α] (f : ParsecM ε σ α) (g : ParsecM ε σ α) : ParsecM ε σ α := do 
+  let a ← f
+  let b ← g
+  return a ++ b
+
+@[inline]
+def andHAppend {A B C : Type u} [HAppend A B C] (f : ParsecM ε σ A) (g : ParsecM ε σ B) : ParsecM ε σ C := do 
+  let a ← f
+  let b ← g
+  return a ++ b
+
+instance {α : Type u} [Append α] : Append $ ParsecM ε σ α := ⟨andAppend⟩
+
+instance {A B C : Type u} [HAppend A B C] : HAppend (ParsecM ε σ A) (ParsecM ε σ B) (ParsecM ε σ C) := ⟨andHAppend⟩
+
+
+end ParsecM
+
+end Parsec
