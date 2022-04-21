@@ -33,26 +33,6 @@ namespace Parsec
 
 open ParseResult ParserState
 
--- instance (α : Type) : Inhabited (Parsec α) :=
---   ⟨λ state => error state ""⟩
-
--- @[inline]
--- protected def pure (a : α) : Parsec α := λ state =>
---  success state a
-
--- @[inline]
--- def bind {α β : Type} (f : Parsec α) (g : α → Parsec β) : Parsec β := λ state =>
---   match f state with
---   | success rem a => g a rem
---   | error state msg => error state msg
-
--- instance : Monad Parsec :=
---   { pure := Parsec.pure, bind }
-
--- @[inline]
--- def map {α β : Type} (f : α → β) (p : Parsec α) : Parsec β := p >>= pure ∘ f
-
-
 /-
 Get the iterator position.
 -/
@@ -61,20 +41,20 @@ def getPos : Parsec String.Pos := do
   let s ← get
   return s.it.pos
 
-@[inline]
-def andAppend {α : Type} [Append α] (f : Parsec α) (g : Parsec α) : Parsec α := do 
-  let a ← f
-  let b ← g
-  return a ++ b
+-- @[inline]
+-- def andAppend {α : Type} [Append α] (f : Parsec α) (g : Parsec α) : Parsec α := do 
+--   let a ← f
+--   let b ← g
+--   return a ++ b
 
-@[inline]
-def andHAppend {A B C : Type} [HAppend A B C] (f : Parsec A) (g : Parsec B) : Parsec C := do 
-  let a ← f
-  let b ← g
-  return a ++ b
+-- @[inline]
+-- def andHAppend {A B C : Type} [HAppend A B C] (f : Parsec A) (g : Parsec B) : Parsec C := do 
+--   let a ← f
+--   let b ← g
+--   return a ++ b
 
-instance {α : Type} [Append α] : Append $ Parsec α := ⟨andAppend⟩
-instance {A B C : Type} [HAppend A B C] : HAppend (Parsec A) (Parsec B) (Parsec C) := ⟨andHAppend⟩
+-- instance {α : Type} [Append α] : Append $ Parsec α := ⟨andAppend⟩
+-- instance {A B C : Type} [HAppend A B C] : HAppend (Parsec A) (Parsec B) (Parsec C) := ⟨andHAppend⟩
 
 @[inline]
 def fail (msg : String) : Parsec α := fun pos =>
@@ -83,34 +63,7 @@ def fail (msg : String) : Parsec α := fun pos =>
 @[inline]
 def never : Parsec Unit := fun pos => error pos ""
 
-/-
-Combine two parsers into one where the first takes presedence
-and the second is tried if the first one fails.
--/
-@[inline]
-def orElse (p : Parsec α) (q : Unit → Parsec α) : Parsec α := fun pos =>
-  let qres := q () pos
-  match p pos with
-  | success rem a =>
-    match qres with
-    | error rem2 err2 => success rem a
-    | success rem2 a2 =>
-      -- Forward the longest match
-      if index rem >= index rem2 then
-        success rem a
-      else
-        success rem2 a2
-  | error rem err => 
-    match qres with
-    | error rem2 err2 =>
-      -- Forward the error of the longest match
-      if index rem >= index rem2 then
-        error rem err
-      else
-        error rem2 err2
-    | success rem a => success rem a
-
-def getState : Parsec (Nat × Nat) := λ pos => success pos (pos.line, pos.lineOffset)
+def getLineInfo : Parsec (Nat × Nat) := λ pos => success pos (pos.line, pos.lineOffset)
 
 /-
 Convert errors to none
@@ -136,9 +89,6 @@ def attempt (p : Parsec α) : Parsec α := λ pos =>
   match p pos with
   | success rem res => success rem res
   | error _ err => error pos err
-
-instance : Alternative Parsec :=
-{ failure := fail "", orElse }
 
 def expectedEndOfInput := "expected end of input"
 
@@ -233,6 +183,14 @@ def oneOfC (cs : List Char) : Parsec Char := do
 @[inline]
 def pchar (c : Char) : Parsec Char := attempt do
   if (←anyChar) = c then pure c else fail s!"expected: '{c}'"
+
+@[inline]
+def oneOf (cs : List Char) : Parsec Char := do
+  let c ← anyChar
+  if cs.contains c then
+    pure c
+  else
+    fail s!"expected one of: {cs}"
 
 @[inline]
 def skipChar (c : Char) : Parsec Unit := pchar c *> pure ()

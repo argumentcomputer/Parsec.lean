@@ -31,11 +31,20 @@ class Backtrackable (δ : outParam (Type u)) (σ : Type u) where
   save    : σ → δ
   restore : σ → δ → σ
 
+@[inline] def dummySave : σ → PUnit := fun _ => ⟨⟩
+
+@[inline] def dummyRestore : σ → PUnit → σ := fun s _ => s
+
+/- Dummy default instance -/
+instance nonBacktrackable : Backtrackable PUnit σ where
+  save    := dummySave
+  restore := dummyRestore
+
 def ParsecM (E S : Type u) [ParserState S] (α : Type u) : Type u := S → Parsec.ParseResult E S α
 
 namespace ParsecM
 
-variable {ε σ α β : Type u} [ParserState σ]
+variable {ε σ α β : Type u} [ParserState σ] [Inhabited ε]
 
 instance [Inhabited ε] : Inhabited (ParsecM ε σ α) where
   default := fun s => error s default
@@ -59,11 +68,33 @@ instance [Inhabited ε] : Inhabited (ParsecM ε σ α) where
   | error s e => handle e (Backtrackable.restore s d)
   | success s a => success s a
 
-@[inline] protected def orElse {δ} [Backtrackable δ σ] (x₁ : ParsecM ε σ α) (x₂ : Unit → ParsecM ε σ α) : ParsecM ε σ α := fun s =>
+/-
+Combine two parsers into one where the first takes presedence
+and the second is tried if the first one fails.
+-/
+@[inline]
+def orElse {δ} [Backtrackable δ σ] (p : ParsecM ε σ α) (q : Unit → ParsecM ε σ α) : ParsecM ε σ α := fun s =>
   let d := Backtrackable.save s;
-  match x₁ s with
-  | error s _ => x₂ () (Backtrackable.restore s d)
-  | success s a  => success s a
+  let qres := q () (Backtrackable.restore s d);
+  match p s with
+  | error s err =>
+    match qres with
+    | error rem2 err2 =>
+      -- Forward the error of the longest match
+      if index s >= index rem2 then
+        error s err
+      else
+        error rem2 err2
+    | success rem a => success rem a
+  | success s a  =>
+    match qres with
+    | error rem2 err2 => success s a
+    | success rem2 a2 =>
+      -- Forward the longest match
+      if index s >= index rem2 then
+        success s a
+      else
+        success rem2 a2
 
 @[inline] protected def throw (e : ε) : ParsecM ε σ α := fun s =>
   error s e
@@ -106,12 +137,18 @@ instance {δ} [Backtrackable δ σ] : MonadExceptOf ε (ParsecM ε σ) where
   throw    := ParsecM.throw
   tryCatch := ParsecM.tryCatch
 
+/--
+Append two appendable parse results.
+-/
 @[inline]
 def andAppend {α : Type u} [Append α] (f : ParsecM ε σ α) (g : ParsecM ε σ α) : ParsecM ε σ α := do 
   let a ← f
   let b ← g
   return a ++ b
 
+/--
+Append two heterogeneous appendable parse results.
+-/
 @[inline]
 def andHAppend {A B C : Type u} [HAppend A B C] (f : ParsecM ε σ A) (g : ParsecM ε σ B) : ParsecM ε σ C := do 
   let a ← f
@@ -120,7 +157,12 @@ def andHAppend {A B C : Type u} [HAppend A B C] (f : ParsecM ε σ A) (g : Parse
 
 instance {α : Type u} [Append α] : Append $ ParsecM ε σ α := ⟨andAppend⟩
 
-instance {A B C : Type u} [HAppend A B C] : HAppend (ParsecM ε σ A) (ParsecM ε σ B) (ParsecM ε σ C) := ⟨andHAppend⟩
+instance {A B C : Type u} [HAppend A B C] : HAppend (ParsecM ε σ A) (ParsecM ε σ B) (ParsecM ε σ C) :=
+  ⟨andHAppend⟩
+
+
+instance [Backtrackable δ σ] : Alternative <| ParsecM ε σ :=
+{ failure := ParsecM.throw default, orElse := ParsecM.orElse }
 
 
 end ParsecM
