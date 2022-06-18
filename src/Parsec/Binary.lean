@@ -46,6 +46,9 @@ def expectB (b : UInt8) : ByteArrayParser Unit := do
 def expectBs (bs : ByteArray) : ByteArrayParser Unit := do
   for b in bs do expectB b
 
+def expectS (s : String) : ByteArrayParser Unit := do
+  expectBs s.toUTF8
+
 def read16LE : ByteArrayParser UInt16 := do
   let a ← read8
   let b ← read8
