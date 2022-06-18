@@ -71,15 +71,15 @@ Convert errors to none
 def option (p : Parsec α) : Parsec $ Option α := fun pos =>
   match p pos with
   | success rem a => success rem (some a)
-  | error rem err => success pos (none)
+  | error _rem _err => success pos (none)
 
 /-
 Try to match but rewind iterator if failure and return success bool
 -/
 def test (p : Parsec α) : Parsec Bool := fun pos =>
   match p pos with
-  | success rem a => success rem true
-  | error rem err => success pos false
+  | success rem _a => success rem true
+  | error _rem _err => success pos false
 
 /-
 Rewind the state on failure

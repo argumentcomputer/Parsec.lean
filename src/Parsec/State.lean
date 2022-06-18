@@ -88,7 +88,7 @@ def orElse {δ} [Backtrackable δ σ] (p : ParsecM ε σ α) (q : Unit → Parse
     | success rem a => success rem a
   | success s a  =>
     match qres with
-    | error rem2 err2 => success s a
+    | error _rem2 _err2 => success s a
     | success rem2 a2 =>
       -- Forward the longest match
       if index s >= index rem2 then

@@ -71,7 +71,7 @@ def readBytes (sz : Nat) : ByteArrayParser ByteArray := do
 
 def readArray (n : Nat) (elem : ByteArrayParser α) : ByteArrayParser (Array α) := do
   let mut arr := #[]
-  for i in [0:n] do
+  for _ in [0:n] do
     arr := arr.push (← elem)
   return arr
 
