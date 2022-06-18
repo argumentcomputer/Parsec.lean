@@ -72,6 +72,9 @@ def readBytes (sz : Nat) : ByteArrayParser ByteArray := do
   else
     error s!"eof before {sz} bytes"
 
+def readString (sz : Nat) : ByteArrayParser String :=
+  readBytes sz |>.map String.fromUTF8Unchecked
+
 def readArray (n : Nat) (elem : ByteArrayParser α) : ByteArrayParser (Array α) := do
   let mut arr := #[]
   for _ in [0:n] do
