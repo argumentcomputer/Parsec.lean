@@ -54,6 +54,11 @@ def read16LE : ByteArrayParser UInt16 := do
   let b ← read8
   return a.toUInt16 ||| (b.toUInt16 <<< 8)
 
+def read16BE : ByteArrayParser UInt16 := do
+  let a ← read8
+  let b ← read8
+  return (a.toUInt16 <<< 8) ||| b.toUInt16
+
 def read32LE : ByteArrayParser UInt32 := do
   let a ← read8
   let b ← read8
@@ -61,8 +66,18 @@ def read32LE : ByteArrayParser UInt32 := do
   let d ← read8
   return a.toUInt32 ||| (b.toUInt32 <<< 8) ||| (c.toUInt32 <<< 16) ||| (d.toUInt32 <<< 24)
 
+def read32BE : ByteArrayParser UInt32 := do
+  let a ← read8
+  let b ← read8
+  let c ← read8
+  let d ← read8
+  return (a.toUInt32 <<< 24) ||| (b.toUInt32 <<< 16) ||| (c.toUInt32 <<< 8) ||| d.toUInt32
+
 def read64LE : ByteArrayParser UInt64 := do
   return (← read32LE).toUInt64 ||| ((← read32LE).toUInt64 <<< 32)
+
+def read64BE : ByteArrayParser UInt64 := do
+  return ((← read32BE).toUInt64 <<< 32) ||| (← read32BE).toUInt64
 
 def readBytes (sz : Nat) : ByteArrayParser ByteArray := do
   let pos ← get
