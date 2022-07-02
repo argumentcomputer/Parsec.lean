@@ -1,5 +1,6 @@
 namespace String
 
+/-- repeat `s` `n+1` times -/
 def duplicate (s : String) (n : Nat) : String :=
   match n with
   | 0 => s
@@ -8,6 +9,7 @@ def duplicate (s : String) (n : Nat) : String :=
 end String
 
 namespace Parsec
+
 instance : Repr ByteArray where
   reprPrec bs p := reprPrec bs.toList p
 

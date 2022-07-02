@@ -1,7 +1,7 @@
 import Parsec.Utils
-import Parsec.State
+import Parsec.Basic
 
-namespace Parsec
+namespace Parsec.Binary
 
 structure ByteArrayParser.Error where
   pos : Nat
@@ -99,4 +99,5 @@ def readArray (n : Nat) (elem : ByteArrayParser α) : ByteArrayParser (Array α)
 def remaining : ByteArrayParser Nat :=
   return (← read).size - (← get)
 end ByteArrayParser
-end Parsec
+
+end Parsec.Binary

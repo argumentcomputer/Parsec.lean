@@ -1,7 +1,10 @@
-
 namespace Parsec
 
 universe u
+
+/-!
+## Abstract `ParsecM` Definition
+-/
 
 class ParserState (P : Type u) where
   /--
@@ -155,16 +158,59 @@ def andHAppend {A B C : Type u} [HAppend A B C] (f : ParsecM ε σ A) (g : Parse
   let b ← g
   return a ++ b
 
-instance {α : Type u} [Append α] : Append $ ParsecM ε σ α := ⟨andAppend⟩
+instance {α : Type u} [Append α] : Append $ ParsecM ε σ α := ⟨andAppend ⟩
 
 instance {A B C : Type u} [HAppend A B C] : HAppend (ParsecM ε σ A) (ParsecM ε σ B) (ParsecM ε σ C) :=
-  ⟨andHAppend⟩
-
+  ⟨andHAppend ⟩
 
 instance [Backtrackable δ σ] : Alternative <| ParsecM ε σ :=
 { failure := ParsecM.throw default, orElse := ParsecM.orElse }
 
-
 end ParsecM
+
+/-!
+## Common Combinators
+-/
+
+/-
+Convert errors to none
+-/
+def option [ParserState σ] (p : ParsecM ε σ α) : ParsecM ε σ $ Option α := fun pos =>
+  match p pos with
+  | success rem a => success rem (some a)
+  | error _rem _err => success pos (none)
+
+/-
+Try to match but rewind iterator if failure and return success bool
+-/
+def test [ParserState σ] (p : ParsecM ε σ α) : ParsecM ε σ Bool := fun pos =>
+  match p pos with
+  | success rem _a => success rem true
+  | error _rem _err => success pos false
+
+/-
+Rewind the state on failure
+-/
+@[inline]
+def attempt [ParserState σ] (p : ParsecM ε σ α) : ParsecM ε σ α := λ pos =>
+  match p pos with
+  | success rem res => success rem res
+  | error _ err => error pos err
+
+
+@[inline]
+partial def manyCore  [ParserState σ] (p : ParsecM ε σ α) (acc : Array α) :  ParsecM ε σ $ Array α := do
+  if let some res ← option p then
+    manyCore p (acc.push $ res)
+  else
+    pure acc
+
+@[inline]
+def many [ParserState σ] (p : ParsecM ε σ α) : ParsecM ε σ $ Array α := manyCore p #[]
+
+@[inline]
+def many1 [ParserState σ] (p : ParsecM ε σ α) : ParsecM ε σ $ Array α := do manyCore p #[←p]
+
+
 
 end Parsec

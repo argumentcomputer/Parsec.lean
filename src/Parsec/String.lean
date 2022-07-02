@@ -1,5 +1,7 @@
 import Parsec.Utils
-import Parsec.State
+import Parsec.Basic
+
+namespace Parsec.String
 
 namespace Parsec
 
@@ -41,21 +43,6 @@ def getPos : Parsec String.Pos := do
   let s ← get
   return s.it.pos
 
--- @[inline]
--- def andAppend {α : Type} [Append α] (f : Parsec α) (g : Parsec α) : Parsec α := do 
---   let a ← f
---   let b ← g
---   return a ++ b
-
--- @[inline]
--- def andHAppend {A B C : Type} [HAppend A B C] (f : Parsec A) (g : Parsec B) : Parsec C := do 
---   let a ← f
---   let b ← g
---   return a ++ b
-
--- instance {α : Type} [Append α] : Append $ Parsec α := ⟨andAppend⟩
--- instance {A B C : Type} [HAppend A B C] : HAppend (Parsec A) (Parsec B) (Parsec C) := ⟨andHAppend⟩
-
 @[inline]
 def fail (msg : String) : Parsec α := fun pos =>
   error pos msg
@@ -65,31 +52,6 @@ def never : Parsec Unit := fun pos => error pos ""
 
 def getLineInfo : Parsec (Nat × Nat) := λ pos => success pos (pos.line, pos.lineOffset)
 
-/-
-Convert errors to none
--/
-def option (p : Parsec α) : Parsec $ Option α := fun pos =>
-  match p pos with
-  | success rem a => success rem (some a)
-  | error _rem _err => success pos (none)
-
-/-
-Try to match but rewind iterator if failure and return success bool
--/
-def test (p : Parsec α) : Parsec Bool := fun pos =>
-  match p pos with
-  | success rem _a => success rem true
-  | error _rem _err => success pos false
-
-/-
-Rewind the state on failure
--/
-@[inline]
-def attempt (p : Parsec α) : Parsec α := λ pos =>
-  match p pos with
-  | success rem res => success rem res
-  | error _ err => error pos err
-
 def expectedEndOfInput := "expected end of input"
 
 @[inline]
@@ -98,19 +60,6 @@ def eof : Parsec Unit := fun pos =>
     error pos expectedEndOfInput
   else
     success pos ()
-
-@[inline]
-partial def manyCore (p : Parsec α) (acc : Array α) : Parsec $ Array α := do
-  if let some res ← option p then
-    manyCore p (acc.push $ res)
-  else
-    pure acc
-
-@[inline]
-def many (p : Parsec α) : Parsec $ Array α := manyCore p #[]
-
-@[inline]
-def many1 (p : Parsec α) : Parsec $ Array α := do manyCore p #[←p]
 
 @[inline]
 partial def manyCharsCore (p : Parsec Char) (acc : String) : Parsec String := do
@@ -282,3 +231,5 @@ def parse {A: Type} (p: Parsec A) (s : String) : Except String A :=
   Except.error s!"\n{line}\n{pointer}\n{err} ({pos.line}:{pos.lineOffset})"
 
 end Parsec
+
+end Parsec.String
