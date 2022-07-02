@@ -13,4 +13,6 @@ namespace Parsec
 instance : Repr ByteArray where
   reprPrec bs p := reprPrec bs.toList p
 
+deriving instance Repr for Except
+
 end Parsec
