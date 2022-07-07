@@ -86,6 +86,12 @@ def read64LE : Parser UInt64 := do
 def read64BE : Parser UInt64 := do
   return ((← read32BE).toUInt64 <<< 32) ||| (← read32BE).toUInt64
 
+def readFloatBE : Parser Float :=
+  read64BE <&> floatOf8Bytes
+
+def readFloatLE : Parser Float :=
+  read64LE <&> floatOf8Bytes
+
 def readBytes (sz : Nat) : Parser ByteArray := do
   let s ← get
   let pos := s.pos
