@@ -15,7 +15,10 @@ instance : Repr ByteArray where
 
 deriving instance Repr for Except
 
-@[extern c inline "*((float*)&#1)"]
+@[extern c inline "((double)(*((float*)&#1)))"]
+opaque floatOf4Bytes : UInt32 → Float
+
+@[extern c inline "*((double*)&#1)"]
 opaque floatOf8Bytes : UInt64 → Float
 
 end Parsec
