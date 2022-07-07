@@ -3,6 +3,7 @@ open Lake DSL
 
 package parsec {
   srcDir := "src"
+  precompileModules := true
 }
 
 @[defaultTarget]
