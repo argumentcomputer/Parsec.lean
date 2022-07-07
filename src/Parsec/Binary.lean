@@ -122,11 +122,10 @@ def remaining : Parser Nat := do
   let ba := s.ref
   return ba.size - pos
 
-end Parser
-
 def parse (p : Parser α) (ba : ByteArray) : Except String α := 
   match p { ref := ba, pos := 0 } with
   | ParseResult.success _ res => Except.ok res
   | ParseResult.error s err => Except.error s!"{s.pos}\n{err}"
 
+end Parser
 end Parsec.Binary
